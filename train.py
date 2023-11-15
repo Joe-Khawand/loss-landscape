@@ -27,6 +27,7 @@ if __name__=='__main__':
     parser.add_argument('--momentum',default=0.9,type=int,help='Momentum for sgd')
     parser.add_argument('--plot', action='store_true', default=False, help='plot pca trajectory after training')
     parser.add_argument('--plot_res',type=int,default=100,help='Plot resulotion')
+    parser.add_argument('--plot_size',type=int,default=100,help='Plot size')
 
     args = parser.parse_args()
 
@@ -55,15 +56,8 @@ if __name__=='__main__':
     
     cifar_dataset = torchvision.datasets.CIFAR10(root='./data', train=True, download=True, transform=transform)
 
-    # Split the dataset into training and validation sets
-    #total_size = len(cifar_dataset)
-    #validation_size = int(0.2 * total_size) 
-    #train_size = total_size - validation_size
-
-    #train_dataset, validation_dataset = torch.utils.data.random_split(cifar_dataset, [train_size, validation_size])
 
     train_loader = DataLoader(cifar_dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.nb_workers)
-    #validation_loader = DataLoader(validation_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.nb_workers)
 
     # Initialize the network, loss function, and optimizer
     net = load(args.model, model_file=None, data_parallel=False)
@@ -82,8 +76,7 @@ if __name__=='__main__':
     max_epochs = args.epochs
 
     # Add Reduce on Plateau scheduler
-    scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=5, verbose=True)
-
+    #scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=5, verbose=True)
 
     # Training loop
     for epoch in range(max_epochs):
@@ -111,32 +104,9 @@ if __name__=='__main__':
         
         training_accuracy = 100.0 * correct / total
         print(f"Epoch {epoch+1}, Loss: {running_loss / len(train_loader)}, Training Accuracy: {training_accuracy}%")
-        
-#        # Evaluate on the validation set
-#        net.eval()
-#        val_loss = 0.0
-#        correct = 0
-#        total = 0
-#        with torch.no_grad():
-#            for data in validation_loader:
-#                inputs, labels = data
-#                inputs = inputs.to(device)
-#                labels = labels.to(device)
-#
-#                outputs = net(inputs)
-#                loss = criterion(outputs, labels)
-#                val_loss += loss.item()
-#
-#                _, predicted = outputs.max(1)
-#                total += labels.size(0)
-#                correct += predicted.eq(labels).sum().item()
-#
-#        val_loss /= len(validation_loader)
-#        accuracy = 100.0 * correct / total
-#        print(f"Epoch {epoch+1}, Validation Loss: {val_loss}, Validation Accuracy: {accuracy}%")
 
         # Adjust the learning rate using the scheduler
-        scheduler.step(running_loss)
+        #scheduler.step(running_loss)
 
         # Save the model at this epoch
         model_filename = f"./cifar10/trained_nets/{args.save_folder_name}/model_{epoch+1}.t7"
@@ -149,10 +119,10 @@ if __name__=='__main__':
             "python3 pca_contour_trajectory.py "
             "--cuda "
             f"--model {args.model} "
-            f"--x=-100:100:{args.plot_res} "
-            f"--y=-100:100:{args.plot_res} "
+            f"--x=-{args.plot_size}:{args.plot_size}:{args.plot_res} "
+            f"--y=-{args.plot_size}:{args.plot_size}:{args.plot_res} "
             "--xnorm filter --xignore biasbn --ynorm filter --yignore biasbn "
-            "--threads 4 "
+            "--threads 10 "
             f"--model_file cifar10/trained_nets/{args.save_folder_name}/model_{max_epochs}.t7 "
             f"--model_folder cifar10/trained_nets/{args.save_folder_name}/ "
             "--start_epoch 1 "

@@ -71,33 +71,6 @@ def setup_surface_file(args, surf_file, dir_file):
 
     return surf_file
 
-#def setup_surface_file(args, surf_file, dir_file):
-#    # skip if the direction file already exists
-#    if os.path.exists(surf_file):
-#        with h5py.File(surf_file, 'r') as f:
-#            if (args.y and 'ycoordinates' in f.keys()) or 'xcoordinates' in f.keys():
-#                print("%s is already set up" % surf_file)
-#                return
-#
-#    with h5py.File(surf_file, 'a') as f:
-#        if 'dir_file' in f:
-#            # Key already exists, update it if needed
-#            f['dir_file'][...] = dir_file
-#        else:
-#            f['dir_file'] = dir_file
-#
-#        # Create the coordinates(resolutions) at which the function is evaluated
-#        xcoordinates = np.linspace(args.xmin, args.xmax, num=int(args.xnum))
-#        f['xcoordinates'] = xcoordinates
-#
-#        if args.y:
-#            ycoordinates = np.linspace(args.ymin, args.ymax, num=int(args.ynum))
-#            f['ycoordinates'] = ycoordinates
-#
-#    return surf_file
-
-
-
 
 def crunch(surf_file, net, w, s, d, dataloader, loss_key, acc_key, comm, rank, args):
     """
