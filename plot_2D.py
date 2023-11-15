@@ -84,7 +84,8 @@ def plot_trajectory(proj_file, dir_file, show=False):
     assert exists(proj_file), 'Projection file does not exist.'
     f = h5py.File(proj_file, 'r')
     fig = plt.figure()
-    plt.plot(f['proj_xcoord'], f['proj_ycoord'], marker='.')
+    
+    plt.plot(f['proj_xcoord'][:], f['proj_ycoord'][:], marker='.')
     plt.tick_params('y', labelsize='x-large')
     plt.tick_params('x', labelsize='x-large')
     f.close()
@@ -122,7 +123,7 @@ def plot_contour_trajectory(surf_file, dir_file, proj_file, surf_name='loss_vals
 
     # plot trajectories
     pf = h5py.File(proj_file, 'r')
-    plt.plot(pf['proj_xcoord'], pf['proj_ycoord'], marker='.')
+    plt.plot(pf['proj_xcoord'][:], pf['proj_ycoord'][:], marker='.')
 
     # plot red points when learning rate decays
     # for e in [150, 225, 275]:

@@ -1,0 +1,10 @@
+combo_contour trajectory
+
+nohup python plot_surface.py --cuda --model vgg9 --x=-1:1:51 --y=-1:1:51 --dir_type states --model_file cifar10/trained_nets/vgg9_sgd_lr=0.1_bs=128_wd=0.0_save_epoch=1/model_300.t7 --model_file2 cifar10/trained_nets/vgg9_sgd_lr=0.1_bs=8192_wd=0.0_save_epoch=1/model_300.t7 --proj_file ./cifar10/trained_nets/myvgg9/PCA_weights_save_epoch=1 --xnorm filter --xignore biasbn --ynorm filter --yignore biasbn --plot &
+
+
+nohup python myplot.py --cuda --model vgg9 --x=-100:100:100 --y=-40:40:50 --threads 4 \
+        --model_file cifar10/trained_nets/myvgg9/model_20.t7 \
+        --model_folder cifar10/trained_nets/myvgg9/ \
+        --start_epoch 1 --max_epoch 20 \
+        --xnorm filter --xignore biasbn --ynorm filter --yignore biasbn --plot &

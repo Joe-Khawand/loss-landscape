@@ -1,27 +1,29 @@
-"""
-    Calculate and visualize the loss surface.
-    Usage example:
-    >>  python plot_surface.py --x=-1:1:101 --y=-1:1:101 --model resnet56 --cuda
-"""
-import argparse
-import copy
-import h5py
+import numpy as np
 import torch
-import time
-import socket
+import copy
+import math
+import h5py
 import os
 import sys
-import numpy as np
+import argparse
+
+
+import model_loader
+import net_plotter
+from projection import setup_PCA_directions, project_trajectory
+import plot_2D
+import plot_1D
+
+import scheduler
+
+import time
+import socket
 import torchvision
 import torch.nn as nn
 import dataloader
 import evaluation
 import projection as proj
-import net_plotter
-import plot_2D
-import plot_1D
-import model_loader
-import scheduler
+
 import mpi4pytorch as mpi
 
 def name_surface_file(args, dir_file):
@@ -59,11 +61,11 @@ def setup_surface_file(args, surf_file, dir_file):
     f['dir_file'] = dir_file
 
     # Create the coordinates(resolutions) at which the function is evaluated
-    xcoordinates = np.linspace(args.xmin, args.xmax, num=args.xnum)
+    xcoordinates = np.linspace(args.xmin, args.xmax, num=int(args.xnum))
     f['xcoordinates'] = xcoordinates
 
     if args.y:
-        ycoordinates = np.linspace(args.ymin, args.ymax, num=args.ynum)
+        ycoordinates = np.linspace(args.ymin, args.ymax, num=int(args.ynum))
         f['ycoordinates'] = ycoordinates
     f.close()
 
@@ -95,13 +97,16 @@ def setup_surface_file(args, surf_file, dir_file):
 #    return surf_file
 
 
+
+
 def crunch(surf_file, net, w, s, d, dataloader, loss_key, acc_key, comm, rank, args):
     """
         Calculate the loss values and accuracies of modified models in parallel
         using MPI reduce.
     """
+    mpi.barrier(comm)
 
-    f = h5py.File(surf_file, 'r+' if rank == 0 else 'r')
+    f = h5py.File(surf_file, 'r+' if rank == 0 else 'r')#, driver='mpio', comm=comm)
     losses, accuracies = [], []
     xcoordinates = f['xcoordinates'][:]
     ycoordinates = f['ycoordinates'][:] if 'ycoordinates' in f.keys() else None
@@ -178,10 +183,9 @@ def crunch(surf_file, net, w, s, d, dataloader, loss_key, acc_key, comm, rank, a
 
     f.close()
 
-###############################################################
-#                          MAIN
-###############################################################
+
 if __name__ == '__main__':
+
     parser = argparse.ArgumentParser(description='plotting loss surface')
     parser.add_argument('--mpi', '-m', action='store_true', help='use mpi')
     parser.add_argument('--cuda', '-c', action='store_true', help='use cuda')
@@ -201,13 +205,24 @@ if __name__ == '__main__':
     # model parameters
     parser.add_argument('--model', default='resnet56', help='model name')
     parser.add_argument('--model_folder', default='', help='the common folder that contains model_file and model_file2')
+    
     parser.add_argument('--model_file', default='', help='path to the trained model file')
     parser.add_argument('--model_file2', default='', help='use (model_file2 - model_file) as the xdirection')
     parser.add_argument('--model_file3', default='', help='use (model_file3 - model_file) as the ydirection')
+    
     parser.add_argument('--loss_name', '-l', default='crossentropy', help='loss functions: crossentropy | mse')
 
+
+    parser.add_argument('--ignore', default='', help='ignore bias and BN paras: biasbn (no bias or bn)')
+    parser.add_argument('--prefix', default='model_', help='prefix for the checkpint model')
+    parser.add_argument('--suffix', default='.t7', help='prefix for the checkpint model')
+    parser.add_argument('--start_epoch', default=0, type=int, help='min index of epochs')
+    parser.add_argument('--max_epoch', default=300, type=int, help='max number of epochs')
+    parser.add_argument('--save_epoch', default=1, type=int, help='save models every few epochs')
+
+
     # direction parameters
-    parser.add_argument('--dir_file', default='', help='specify the name of direction file, or the path to an eisting direction file')
+    parser.add_argument('--dir_file', help='specify the name of direction file, or the path to an eisting direction file')
     parser.add_argument('--dir_type', default='weights', help='direction type: weights | states (including BN\'s running_mean/var)')
     parser.add_argument('--x', default='-1:1:51', help='A string with format xmin:x_max:xnum')
     parser.add_argument('--y', default=None, help='A string with format ymin:ymax:ynum')
@@ -220,7 +235,7 @@ if __name__ == '__main__':
     parser.add_argument('--surf_file', default='', help='customize the name of surface file, could be an existing file.')
 
     # plot parameters
-    parser.add_argument('--proj_file', default='', help='the .h5 file contains projected optimization trajectory.')
+    #parser.add_argument('--proj_file', default='', help='the .h5 file contains projected optimization trajectory.')
     parser.add_argument('--loss_max', default=5, type=float, help='Maximum value to show in 1D plot')
     parser.add_argument('--vmax', default=10, type=float, help='Maximum value to map')
     parser.add_argument('--vmin', default=0.1, type=float, help='Miminum value to map')
@@ -236,6 +251,7 @@ if __name__ == '__main__':
     # Environment setup
     #--------------------------------------------------------------------------
     if args.mpi:
+        
         comm = mpi.setup_MPI()
         rank, nproc = comm.Get_rank(), comm.Get_size()
     else:
@@ -273,12 +289,58 @@ if __name__ == '__main__':
         # data parallel with multiple GPUs on a single node
         net = nn.DataParallel(net, device_ids=range(torch.cuda.device_count()))
 
+    
+    mpi.barrier(comm)
     #--------------------------------------------------------------------------
-    # Setup the direction file and the surface file
+    # Setup the direction file 
     #--------------------------------------------------------------------------
-    dir_file = net_plotter.name_direction_file(args) # name the direction file
+    
+    
+    # collect models to be projected
     if rank == 0:
-        net_plotter.setup_direction(args, dir_file, net)
+        model_files = []
+        for epoch in range(args.start_epoch, args.max_epoch + args.save_epoch, args.save_epoch):
+            model_file = args.model_folder + '/' + args.prefix + str(epoch) + args.suffix
+            assert os.path.exists(model_file), 'model %s does not exist' % model_file
+            model_files.append(model_file)
+    
+    mpi.barrier(comm)
+
+    # redundency line for mpijust for mpi
+    dir_file = None
+    proj_file=None
+
+    # load or create projection directions
+    if rank == 0:
+        if args.dir_file != None:
+            dir_file = args.dir_file
+        else:
+            print('Setting up PCA directions')
+            dir_file = setup_PCA_directions(args, model_files, w, s)
+            
+    # Broadcast dir_file from rank 0 to all processes
+    if args.mpi:
+        dir_file = comm.bcast(dir_file, root=0)
+
+    print("Rank: ", rank, ". dir_file is: ", str(dir_file))
+
+    mpi.barrier(comm)
+
+    #Setup proj file
+
+    if rank == 0:
+        proj_file = project_trajectory(dir_file, w, s, args.dataset, args.model,
+                                model_files, args.dir_type, 'cos')
+    
+    if args.mpi:
+        # Broadcast proj_file from rank 0 to all processes
+        proj_file = comm.bcast(proj_file, root=0)
+
+    mpi.barrier(comm)
+    #--------------------------------------------------------------------------
+    # Setup the surface file 
+    #--------------------------------------------------------------------------
+
 
     surf_file = name_surface_file(args, dir_file)
     if rank == 0:
@@ -313,14 +375,10 @@ if __name__ == '__main__':
     #--------------------------------------------------------------------------
     crunch(surf_file, net, w, s, d, trainloader, 'train_loss', 'train_acc', comm, rank, args)
     # crunch(surf_file, net, w, s, d, testloader, 'test_loss', 'test_acc', comm, rank, args)
-
+    
+    mpi.barrier(comm)
     #--------------------------------------------------------------------------
     # Plot figures
     #--------------------------------------------------------------------------
-    if args.plot and rank == 0:
-        if args.y and args.proj_file:
-            plot_2D.plot_contour_trajectory(surf_file, dir_file, args.proj_file, 'train_loss', args.show)
-        elif args.y:
-            plot_2D.plot_2d_contour(surf_file, 'train_loss', args.vmin, args.vmax, args.vlevel, args.show)
-        else:
-            plot_1D.plot_1d_loss_err(surf_file, args.xmin, args.xmax, args.loss_max, args.log, args.show)
+    if rank == 0:
+        plot_2D.plot_contour_trajectory(surf_file, dir_file, proj_file, 'train_loss',vmin=args.vmin, vmax=args.vmax, vlevel=args.vlevel,show=args.show)

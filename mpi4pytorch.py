@@ -10,11 +10,13 @@ def setup_MPI():
     try:
         from mpi4py import MPI
         comm = MPI.COMM_WORLD
+        
         #  Convert the Object to a Class so that it is possible to add attributes later
         class A(mpi4py.MPI.Intracomm):
             pass
         comm = A(comm)
-    except:
+    except Exception as e:
+       print('\n Setup MPI ERROR : ',e,'\n')
        comm = None
 
     return comm
@@ -32,7 +34,7 @@ def allreduce_max(comm, array, display_info=False):
         return array
     array = np.asarray(array, dtype='d')
     total = np.zeros_like(array)
-    float_min = np.finfo(np.float).min
+    float_min = np.finfo(np.float64).min
     total.fill(float_min)
 
     if display_info:
@@ -49,7 +51,7 @@ def allreduce_min(comm, array, display_info=False):
         return array
     array = np.asarray(array, dtype='d')
     total = np.zeros_like(array)
-    float_max = np.finfo(np.float).max
+    float_max = np.finfo(np.float64).max
     total.fill(float_max)
 
     if display_info:
@@ -67,7 +69,7 @@ def reduce_max(comm, array, display_info=False):
         return array
     array = np.asarray(array, dtype='d')
     total = np.zeros_like(array)
-    float_min = np.finfo(np.float).min
+    float_min = np.finfo(np.float64).min
     total.fill(float_min)
 
     if display_info:
@@ -84,7 +86,7 @@ def reduce_min(comm, array, display_info=False):
         return array
     array = np.asarray(array, dtype='d')
     total = np.zeros_like(array)
-    float_max = np.finfo(np.float).max
+    float_max = np.finfo(np.float64).max
     total.fill(float_max)
 
     if display_info:
