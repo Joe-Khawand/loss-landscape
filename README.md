@@ -1,5 +1,7 @@
 # Visualizing the Loss Landscape of Neural Nets
 
+>**NOTE**  
+> This repository is a fork of the initial project. It fixes some bugs and focuses on 2d plotting of trajectories with contours
 
 This repository contains the PyTorch code for the paper
 > Hao Li, Zheng Xu, Gavin Taylor, Christoph Studer and Tom Goldstein. [*Visualizing the Loss Landscape of Neural Nets*](https://arxiv.org/abs/1712.09913). NIPS, 2018.
