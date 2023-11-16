@@ -95,7 +95,7 @@ def project_1D(w, d):
             the projection scalar
     """
     assert len(w) == len(d), 'dimension does not match for w and '
-    scale = torch.dot(w, d)/d.norm()
+    scale = torch.dot(w, d.to(torch.float32))/d.to(torch.float32).norm()
     return scale.item()
 
 

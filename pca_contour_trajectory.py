@@ -25,6 +25,7 @@ import evaluation
 import projection as proj
 
 import mpi4pytorch as mpi
+from mpi4py import MPI
 
 def name_surface_file(args, dir_file):
     # skip if surf_file is specified in args
@@ -78,12 +79,19 @@ def crunch(surf_file, net, w, s, d, dataloader, loss_key, acc_key, comm, rank, a
         using MPI reduce.
     """
     mpi.barrier(comm)
+    f = h5py.File(surf_file, 'r+')
 
-    f = h5py.File(surf_file, 'r+' if rank == 0 else 'r')#, driver='mpio', comm=comm)
-    losses, accuracies = [], []
-    xcoordinates = f['xcoordinates'][:]
-    ycoordinates = f['ycoordinates'][:] if 'ycoordinates' in f.keys() else None
+    xcoordinates=None
+    ycoordinates=None
+    if(rank==0):
+        losses, accuracies = [], []
+        xcoordinates = f['xcoordinates'][:]
+        ycoordinates = f['ycoordinates'][:] if 'ycoordinates' in f.keys() else None
 
+    xcoordinates=comm.bcast(xcoordinates,root=0)
+    ycoordinates=comm.bcast(ycoordinates,root=0)
+
+    mpi.barrier(comm)
     if loss_key not in f.keys():
         shape = xcoordinates.shape if ycoordinates is None else (len(xcoordinates),len(ycoordinates))
         losses = -np.ones(shape=shape)
@@ -225,7 +233,7 @@ if __name__ == '__main__':
     #--------------------------------------------------------------------------
     if args.mpi:
         
-        comm = mpi.setup_MPI()
+        comm = MPI.COMM_WORLD
         rank, nproc = comm.Get_rank(), comm.Get_size()
     else:
         comm, rank, nproc = None, 0, 1
@@ -277,20 +285,20 @@ if __name__ == '__main__':
             assert os.path.exists(model_file), 'model %s does not exist' % model_file
             model_files.append(model_file)
     
-    mpi.barrier(comm)
-
     # redundency line for mpijust for mpi
     dir_file = None
     proj_file=None
 
-    # load or create projection directions
+    mpi.barrier(comm)
+
     if rank == 0:
         if args.dir_file != None:
             dir_file = args.dir_file
         else:
             print('Setting up PCA directions')
             dir_file = setup_PCA_directions(args, model_files, w, s)
-            
+    
+    mpi.barrier(comm)
     # Broadcast dir_file from rank 0 to all processes
     if args.mpi:
         dir_file = comm.bcast(dir_file, root=0)
@@ -313,7 +321,7 @@ if __name__ == '__main__':
     #--------------------------------------------------------------------------
     # Setup the surface file 
     #--------------------------------------------------------------------------
-
+    mpi.barrier(comm)
 
     surf_file = name_surface_file(args, dir_file)
     if rank == 0:
@@ -336,16 +344,18 @@ if __name__ == '__main__':
     if rank == 0 and args.dataset == 'cifar10':
         torchvision.datasets.CIFAR10(root=args.dataset + '/data', train=True, download=True)
 
-    mpi.barrier(comm)
+    
 
     trainloader, testloader = dataloader.load_dataset(args.dataset, args.datapath,
                                 args.batch_size, args.threads, args.raw_data,
                                 args.data_split, args.split_idx,
                                 args.trainloader, args.testloader)
-
+    
     #--------------------------------------------------------------------------
     # Start the computation
     #--------------------------------------------------------------------------
+    mpi.barrier(comm)
+    
     crunch(surf_file, net, w, s, d, trainloader, 'train_loss', 'train_acc', comm, rank, args)
     # crunch(surf_file, net, w, s, d, testloader, 'test_loss', 'test_acc', comm, rank, args)
     

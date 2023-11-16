@@ -5,21 +5,28 @@
 
 import numpy as np
 import mpi4py
+from mpi4py import MPI
+
+#def setup_MPI():
+#    try:
+#        from mpi4py import MPI
+#        comm = MPI.COMM_WORLD
+#        
+#        #  Convert the Object to a Class so that it is possible to add attributes later
+#        class A(mpi4py.MPI.Intracomm):
+#            pass
+#        comm = A(comm)
+#    except Exception as e:
+#       print('\n Setup MPI ERROR : ',e,'\n')
+#       comm = None
+#
+#    return comm
 
 def setup_MPI():
-    try:
-        from mpi4py import MPI
-        comm = MPI.COMM_WORLD
-        
-        #  Convert the Object to a Class so that it is possible to add attributes later
-        class A(mpi4py.MPI.Intracomm):
-            pass
-        comm = A(comm)
-    except Exception as e:
-       print('\n Setup MPI ERROR : ',e,'\n')
-       comm = None
+    comm = MPI.COMM_WORLD
 
     return comm
+
 
 
 def print_once(comm, *message):
