@@ -88,8 +88,9 @@ def crunch(surf_file, net, w, s, d, dataloader, loss_key, acc_key, comm, rank, a
         xcoordinates = f['xcoordinates'][:]
         ycoordinates = f['ycoordinates'][:] if 'ycoordinates' in f.keys() else None
 
-    xcoordinates=comm.bcast(xcoordinates,root=0)
-    ycoordinates=comm.bcast(ycoordinates,root=0)
+    if args.mpi:
+        xcoordinates=comm.bcast(xcoordinates,root=0)
+        ycoordinates=comm.bcast(ycoordinates,root=0)
 
     mpi.barrier(comm)
     if loss_key not in f.keys():

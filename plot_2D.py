@@ -117,13 +117,22 @@ def plot_contour_trajectory(surf_file, dir_file, proj_file, surf_name='loss_vals
     if surf_name in f.keys():
         Z = np.array(f[surf_name][:])
 
-    fig = plt.figure()
+    fig, ax = plt.subplots()
     CS1 = plt.contour(X, Y, Z, levels=np.arange(vmin, vmax, vlevel))
     CS2 = plt.contour(X, Y, Z, levels=np.logspace(1, 8, num=8))
 
-    # plot trajectories
+    # plot trajectories with arrow scatter
     pf = h5py.File(proj_file, 'r')
-    plt.plot(pf['proj_xcoord'][:], pf['proj_ycoord'][:], marker='.')
+    proj_x = pf['proj_xcoord'][:]
+    proj_y = pf['proj_ycoord'][:]
+
+    # Calculate arrow directions
+    dx = np.diff(proj_x)
+    dy = np.diff(proj_y)
+    arrow_lengths = np.sqrt(dx**2 + dy**2)
+
+    # Add arrows using quiver with arrow lengths
+    ax.quiver(proj_x[:-1], proj_y[:-1], dx, dy, scale_units='xy', scale=1, angles='xy', color='black', width=0.005, minlength=0.1,zorder=10)
 
     # plot red points when learning rate decays
     # for e in [150, 225, 275]:

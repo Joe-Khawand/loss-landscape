@@ -1,0 +1,3 @@
+[submodule "natgrad"]
+	path = natgrad
+	url = git@github.com:Thrandis/EKFAC-pytorch.git

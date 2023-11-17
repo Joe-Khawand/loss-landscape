@@ -11,6 +11,8 @@ from cifar10.model_loader import load
 
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
+from natgrad.ekfac import EKFAC
+
 import argparse
 
 if __name__=='__main__':
@@ -27,9 +29,12 @@ if __name__=='__main__':
     parser.add_argument('--momentum',default=0.9,type=int,help='Momentum for sgd')
     parser.add_argument('--plot', action='store_true', default=False, help='plot pca trajectory after training')
     parser.add_argument('--plot_res',type=int,default=100,help='Plot resulotion')
-    parser.add_argument('--plot_size',type=int,default=100,help='Plot size')
+    parser.add_argument('--plot_size_x',type=int,default=100,help='Plot size x')
+    parser.add_argument('--plot_size_y',type=int,default=100,help='Plot size y')
 
     args = parser.parse_args()
+
+    torch.manual_seed(123)
 
     assert args.save_folder_name!=None,'Please specify a folder to save the trained models'
 
@@ -70,6 +75,7 @@ if __name__=='__main__':
         optimizer = optim.Adam(net.parameters(), lr=args.lr,betas=args.betas, weight_decay=args.weight_decay)
     elif args.optim=='natgrad':
         optimizer = optim.SGD(net.parameters(), lr=args.lr)
+        preconditioner = EKFAC(net=net,eps=0.1,ra=True)
     else:
         raise NotImplementedError('Optimizer not implemented')
     
@@ -94,6 +100,10 @@ if __name__=='__main__':
             outputs = net(inputs)
             loss = criterion(outputs, labels)
             loss.backward()
+
+            if args.optim=='natgrad':
+                preconditioner.step()
+                
             optimizer.step()
             running_loss += loss.item()
 
@@ -116,17 +126,20 @@ if __name__=='__main__':
 
     if args.plot:
         command = (
+            "mpirun -n 15 "
             "python3 pca_contour_trajectory.py "
+            "--mpi "
             "--cuda "
             f"--model {args.model} "
-            f"--x=-{args.plot_size}:{args.plot_size}:{args.plot_res} "
-            f"--y=-{args.plot_size}:{args.plot_size}:{args.plot_res} "
-            "--xnorm filter --xignore biasbn --ynorm filter --yignore biasbn "
-            "--threads 10 "
+            f"--x=-{args.plot_size_x}:{args.plot_size_x}:{args.plot_res} "
+            f"--y=-{args.plot_size_y}:{args.plot_size_y}:{args.plot_res} "
+            "--xnorm filter --ynorm filter "
+            "--threads 4 "
             f"--model_file cifar10/trained_nets/{args.save_folder_name}/model_{max_epochs}.t7 "
             f"--model_folder cifar10/trained_nets/{args.save_folder_name}/ "
             "--start_epoch 1 "
             f"--max_epoch {max_epochs} "
-            "--plot"
+            "--plot "
+            "--vmin 0.1 --vlevel 0.5 "
         )
         os.system(command=command)
