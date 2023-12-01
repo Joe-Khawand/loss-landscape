@@ -14,14 +14,11 @@ The random direction(s) and loss surface values are stored in HDF5 (`.h5`) files
 
 ## Setup
 
-**Environment**: One or more multi-GPU node(s) with the following software/libraries installed:
-- [PyTorch 0.4](https://pytorch.org/)
-- [openmpi 3.1.2](https://www.open-mpi.org/)
-- [mpi4py 2.0.0](https://mpi4py.scipy.org/docs/usrman/install.html)
-- [numpy 1.15.1](https://docs.scipy.org/doc/numpy/user/quickstart.html)  
-- [h5py 2.7.0](http://docs.h5py.org/en/stable/build.html#install)
-- [matplotlib 2.0.2](https://matplotlib.org/users/installing.html)
-- [scipy 0.19](https://www.scipy.org/install.html)
+For the setup:
+```
+conda env create -f environment.yml
+conda activate landscape-mpi
+```
 
 **Pre-trained models**:
 The code accepts pre-trained PyTorch models for the CIFAR-10 dataset.
@@ -98,6 +95,13 @@ python plot_2D.py --surf_file path_to_surf_file --surf_name train_loss
 - `--vmin` and `--vmax` sets the range of values to be plotted.
 - `--vlevel` sets the step of the contours.
 
+## Visualizing 2D loss surface with trajectory
+
+Use the created `pca_contour_trajectory.py`.
+
+To train a model then plot the contour trajectory use `train.py`.
+
+To run an experiment comparing multiple optimizers use `run_experiment.py`.
 
 ## Visualizing 3D loss surface
 `plot_2D.py` can make a basic 3D loss surface plot with `matplotlib`.
