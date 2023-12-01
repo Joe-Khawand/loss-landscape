@@ -12,11 +12,11 @@ if __name__=='__main__':
         print("--------------------------\n")
         command=(
             "python3 train.py "
-            f"--save_folder_name resnet20_{opt} "
+            f"--save_folder_name resnet20_{opt}_v3 "
             "--model resnet20 "
             f"--optim {opt} "
             "--plot "
             "--plot_res 100 " 
-            "--plot_size_x 500 --plot_size_y 300"
+            "--plot_size_x 25 --plot_size_y 25"
         )
         os.system(command=command)
